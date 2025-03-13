@@ -7,7 +7,7 @@ WebServer server(80);
 String t = "N/A";
 String distance_m_fig = "N/A";
 
-const int resetPin = 8; // Use a valid pin for WiFi reset
+const int resetPin = 8;
 
 // Store previous measurements
 const int historySize = 5;
@@ -21,19 +21,23 @@ int measurementCount = 0;
 float wifiSignalStrength = 0;
 String ipAddress = "";
 
-// Static IP Configuration
-IPAddress local_IP(192, 168, 1, 200);
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
+// Function prototypes
+String formatUptime(unsigned long seconds);
+String getLastUpdateTime();
+String getSignalColor(float signalStrength);
+String getSignalClass(float signalStrength);
+String getSignalQuality(float signalStrength);
 
 void setup() {
   Serial.begin(115200);
-  Serial1.begin(9600, SERIAL_8N1, 5, 6);  // TX = GPIO5, RX = GPIO4 for ESP32-C3
+  Serial1.begin(9600, SERIAL_8N1, 5, 6);
 
   pinMode(resetPin, INPUT_PULLUP);
 
+  // Initialize WiFiManager
   WiFiManager wifiManager;
 
+  // Check if reset button is pressed
   if (digitalRead(resetPin) == LOW) {
     Serial.println("Resetting WiFi settings...");
     wifiManager.resetSettings();
@@ -41,27 +45,29 @@ void setup() {
     ESP.restart();
   }
 
-  if (!WiFi.config(local_IP, gateway, subnet)) {
-    Serial.println("Failed to configure Static IP.");
-  }
+  // Set custom AP name
+  Serial.println("Setting up WiFiManager...");
 
+  // Start the configuration portal
+  // This will create an access point named "FreeFallAP"
   if (!wifiManager.autoConnect("FreeFallAP")) {
-    Serial.println("Failed to connect to WiFi. Restarting...");
-    delay(1000);
+    Serial.println("Failed to connect and hit timeout");
+    delay(3000);
+    // Reset and try again
     ESP.restart();
   }
 
+  // If you get here, you're connected to the WiFi
   ipAddress = WiFi.localIP().toString();
   Serial.println("WiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(ipAddress);
   Serial.print("Access the web interface at: http://");
   Serial.println(ipAddress);
 
-  // Webpage
   server.on("/", HTTP_GET, []() {
-    // Update status information
-    uptime = millis() / 1000; // Convert to seconds
+    uptime = millis() / 1000;
     wifiSignalStrength = WiFi.RSSI();
-
     String html = "<!DOCTYPE html>"
                   "<html lang=\"en\">"
                   "<head>"
@@ -329,10 +335,11 @@ void setup() {
                   "            <div class=\"status-card\">"
                   "                <div class=\"status-icon\"></div>"
                   "                <div class=\"status-title\">UPTIME</div>"
-                  "                <div class=\"status-value\">" + formatUptime(uptime) + "</div>"
-                  "            </div>"
-                  "            <div class=\"status-card\">"
-                  "                <div class=\"status-title\">WIFI SIGNAL</div>";
+                  "                <div class=\"status-value\">"
+                  + formatUptime(uptime) + "</div>"
+                                           "            </div>"
+                                           "            <div class=\"status-card\">"
+                                           "                <div class=\"status-title\">WIFI SIGNAL</div>";
 
     // Signal strength indicator with color coding
     if (wifiSignalStrength > -50) {
@@ -344,39 +351,44 @@ void setup() {
     }
 
     html += "                <div class=\"progress-bar\">"
-            "                    <div class=\"progress\" style=\"width: " + String(map(constrain(wifiSignalStrength, -90, -30), -90, -30, 0, 100)) + "%; background-color: " + getSignalColor(wifiSignalStrength) + ";\"></div>"
-            "                </div>"
-            "            </div>"
-            "            <div class=\"status-card\">"
-            "                <div class=\"status-title\">LAST UPDATE</div>"
-            "                <div class=\"status-value\">" + getLastUpdateTime() + "</div>"
-            "            </div>"
-            "            <div class=\"status-card\">"
-            "                <div class=\"status-title\">IP ADDRESS</div>"
-            "                <div class=\"status-value\" style=\"font-size: 18px;\">" + ipAddress + "</div>"
-            "            </div>"
-            "        </div>"
-            "    </div>"
-            "    "
-            "    <div class=\"container\">"
-            "        <h2>Current Measurements</h2>"
-            "        "
-            "        <div class=\"measurement\">"
-            "            <strong>Time (s):</strong> <span id=\"time\">" + t + "</span>"
-            "        </div>"
-            "        <div class=\"measurement\">"
-            "            <strong>Height (m):</strong> <span id=\"height\">" + distance_m_fig + "</span>"
-            "        </div>"
-            "    </div>"
-            "    "
-            "    <div class=\"container\">"
-            "        <h2>Measurement History</h2>"
-            "        <table id=\"records-table\">"
-            "            <tr>"
-            "                <th>Time (s)</th>"
-            "                <th>Height (m)</th>"
-            "                <th>Calculated g (m/s²)</th>"
-            "            </tr>";
+            "                    <div class=\"progress\" style=\"width: "
+            + String(map(constrain(wifiSignalStrength, -90, -30), -90, -30, 0, 100)) + "%; background-color: " + getSignalColor(wifiSignalStrength) + ";\"></div>"
+                                                                                                                                                      "                </div>"
+                                                                                                                                                      "            </div>"
+                                                                                                                                                      "            <div class=\"status-card\">"
+                                                                                                                                                      "                <div class=\"status-title\">LAST UPDATE</div>"
+                                                                                                                                                      "                <div class=\"status-value\">"
+            + getLastUpdateTime() + "</div>"
+                                    "            </div>"
+                                    "            <div class=\"status-card\">"
+                                    "                <div class=\"status-title\">IP ADDRESS</div>"
+                                    "                <div class=\"status-value\" style=\"font-size: 18px;\">"
+            + ipAddress + "</div>"
+                          "            </div>"
+                          "        </div>"
+                          "    </div>"
+                          "    "
+                          "    <div class=\"container\">"
+                          "        <h2>Current Measurements</h2>"
+                          "        "
+                          "        <div class=\"measurement\">"
+                          "            <strong>Time (s):</strong> <span id=\"time\">"
+            + t + "</span>"
+                  "        </div>"
+                  "        <div class=\"measurement\">"
+                  "            <strong>Height (m):</strong> <span id=\"height\">"
+            + distance_m_fig + "</span>"
+                               "        </div>"
+                               "    </div>"
+                               "    "
+                               "    <div class=\"container\">"
+                               "        <h2>Measurement History</h2>"
+                               "        <table id=\"records-table\">"
+                               "            <tr>"
+                               "                <th>Time (s)</th>"
+                               "                <th>Height (m)</th>"
+                               "                <th>Calculated g (m/s²)</th>"
+                               "            </tr>";
 
     // Add history entries to the table
     for (int i = 0; i < historySize; i++) {
@@ -405,44 +417,51 @@ void setup() {
             "        <div class=\"wifi-details\">"
             "            <div class=\"detail-row\">"
             "                <strong>SSID:</strong>"
-            "                <span class=\"detail-value\">" + WiFi.SSID() + "</span>"
-            "            </div>"
-            "            <div class=\"detail-row\">"
-            "                <strong>Signal Strength:</strong>"
-            "                <span class=\"detail-value " + getSignalClass(wifiSignalStrength) + "\">" + String(wifiSignalStrength) + " dBm (" + getSignalQuality(wifiSignalStrength) + ")</span>"
-            "            </div>"
-            "            <div class=\"detail-row\">"
-            "                <strong>MAC Address:</strong>"
-            "                <span class=\"detail-value\">" + WiFi.macAddress() + "</span>"
-            "            </div>"
-            "            <div class=\"detail-row\">"
-            "                <strong>IP Address:</strong>"
-            "                <span class=\"detail-value\">" + ipAddress + "</span>"
-            "            </div>"
-            "            <div class=\"detail-row\">"
-            "                <strong>Gateway:</strong>"
-            "                <span class=\"detail-value\">" + WiFi.gatewayIP().toString() + "</span>"
-            "            </div>"
-            "            <div class=\"detail-row\">"
-            "                <strong>Subnet Mask:</strong>"
-            "                <span class=\"detail-value\">" + WiFi.subnetMask().toString() + "</span>"
-            "            </div>"
-            "            <div class=\"detail-row\">"
-            "                <strong>DNS Server:</strong>"
-            "                <span class=\"detail-value\">" + WiFi.dnsIP().toString() + "</span>"
-            "            </div>"
-            "        </div>"
-            "        <div class=\"wifi-controls\">"
-            "            <form action=\"/reset-wifi\" method=\"get\">"
-            "                <button type=\"submit\" class=\"wifi-btn primary-btn\">Reset Wi-Fi Settings</button>"
-            "            </form>"
-            "            <form action=\"/restart\" method=\"get\">"
-            "                <button type=\"submit\" class=\"wifi-btn\">Restart Device</button>"
-            "            </form>"
-            "        </div>"
-            "    </div>"
-            "</body>"
-            "</html>";
+            "                <span class=\"detail-value\">"
+            + WiFi.SSID() + "</span>"
+                            "            </div>"
+                            "            <div class=\"detail-row\">"
+                            "                <strong>Signal Strength:</strong>"
+                            "                <span class=\"detail-value "
+            + getSignalClass(wifiSignalStrength) + "\">" + String(wifiSignalStrength) + " dBm (" + getSignalQuality(wifiSignalStrength) + ")</span>"
+                                                                                                                                          "            </div>"
+                                                                                                                                          "            <div class=\"detail-row\">"
+                                                                                                                                          "                <strong>MAC Address:</strong>"
+                                                                                                                                          "                <span class=\"detail-value\">"
+            + WiFi.macAddress() + "</span>"
+                                  "            </div>"
+                                  "            <div class=\"detail-row\">"
+                                  "                <strong>IP Address:</strong>"
+                                  "                <span class=\"detail-value\">"
+            + ipAddress + "</span>"
+                          "            </div>"
+                          "            <div class=\"detail-row\">"
+                          "                <strong>Gateway:</strong>"
+                          "                <span class=\"detail-value\">"
+            + WiFi.gatewayIP().toString() + "</span>"
+                                            "            </div>"
+                                            "            <div class=\"detail-row\">"
+                                            "                <strong>Subnet Mask:</strong>"
+                                            "                <span class=\"detail-value\">"
+            + WiFi.subnetMask().toString() + "</span>"
+                                             "            </div>"
+                                             "            <div class=\"detail-row\">"
+                                             "                <strong>DNS Server:</strong>"
+                                             "                <span class=\"detail-value\">"
+            + WiFi.dnsIP().toString() + "</span>"
+                                        "            </div>"
+                                        "        </div>"
+                                        "        <div class=\"wifi-controls\">"
+                                        "            <form action=\"/reset-wifi\" method=\"get\">"
+                                        "                <button type=\"submit\" class=\"wifi-btn primary-btn\">Reset Wi-Fi Settings</button>"
+                                        "            </form>"
+                                        "            <form action=\"/restart\" method=\"get\">"
+                                        "                <button type=\"submit\" class=\"wifi-btn\">Restart Device</button>"
+                                        "            </form>"
+                                        "        </div>"
+                                        "    </div>"
+                                        "</body>"
+                                        "</html>";
 
     server.send(200, "text/html", html);
   });
@@ -495,6 +514,7 @@ void setup() {
   });
 
   server.begin();
+  Serial.println("HTTP server started");
 }
 
 void loop() {
@@ -512,21 +532,17 @@ void loop() {
       String temp_h = data.substring(hIndex + 2);
 
       if (temp_t.length() > 0 && temp_h.length() > 0) {
-        // Shift history down to make space for the new value
         for (int i = historySize - 1; i > 0; i--) {
           t_history[i] = t_history[i - 1];
           h_history[i] = h_history[i - 1];
         }
 
-        // Store the latest measurement at index 0
         t_history[0] = t;
         h_history[0] = distance_m_fig;
 
-        // Update the latest values
         t = temp_t;
         distance_m_fig = temp_h;
 
-        // Update measurement tracking
         lastMeasurementTime = millis();
         measurementCount++;
       }
@@ -542,7 +558,7 @@ void loop() {
   }
 }
 
-// Helper functions for formatting display values
+// Helper function implementations
 String formatUptime(unsigned long seconds) {
   int days = seconds / 86400;
   seconds %= 86400;
@@ -580,21 +596,21 @@ String getLastUpdateTime() {
 
 String getSignalColor(float signalStrength) {
   if (signalStrength > -50) {
-    return "#27ae60"; // Strong - Green
+    return "#27ae60";  // Strong - Green
   } else if (signalStrength > -70) {
-    return "#f39c12"; // Medium - Orange
+    return "#f39c12";  // Medium - Orange
   } else {
-    return "#e74c3c"; // Weak - Red
+    return "#e74c3c";  // Weak - Red
   }
 }
 
 String getSignalClass(float signalStrength) {
   if (signalStrength > -50) {
-    return "good"; // Strong
+    return "good";  // Strong
   } else if (signalStrength > -70) {
-    return "warning"; // Medium
+    return "warning";  // Medium
   } else {
-    return "critical"; // Weak
+    return "critical";  // Weak
   }
 }
 
